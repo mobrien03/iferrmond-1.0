@@ -1,0 +1,14 @@
+iferrmond-1.0/.git
+iferrmond-1.0/create_tar.sh
+iferrmond-1.0/iferrmond_tar_exclude.txt
+iferrmond-1.0/gdb_daemon.sh
+iferrmond-1.0/.gitignore
+iferrmond-1.0/iferrmond-1.0-1.0.spec
+iferrmond-1.0/daemon/*.o
+iferrmond-1.0/daemon/.*.swp
+iferrmond-1.0/daemon/functions_called_from_library.out
+iferrmond-1.0/lib/.not_needed
+iferrmond-1.0/lib/*.o
+iferrmond-1.0/lib/*.a
+iferrmond-1.0/cscope.out
+iferrmond-1.0/.*.swp

@@ -1,0 +1,341 @@
+.\" SPDX-License-Identifier: GPL-2.0-or-later 
+.\" This file is part of iferrmond
+.\"
+.\" These are comment lines...
+.\" .B is bold
+.\" .BR is bold, and run following text (unbold) together
+.\" .I is underline
+.\"
+.TH iferrmond 1 "31 October, 2022" " "
+.SH NAME
+iferrmond \- Daemon to monitor configured network interface(s) for kernel
+statistics errors.
+.SH SYNOPSIS
+.B iferrmond
+.RB [ \-V ] |
+.RB [ \-? ] 
+.RE
+.B iferrmond
+.RB [ \-c configFile ]
+.RB [ \-D ]
+.RE
+.SH DESCRIPTION
+.LP
+.B iferrmond
+is a daemon intended to run under control of systemd(1), designed to monitor 
+configured network interfaces for kernel statistics errors.  Depending upon the 
+contents of the systemd iferrmond unit file iferrmond.service, logging of 
+events (Info, Alert, Error) by iferrmond will be written to either syslog, or 
+a log file.  If no special systemd log file configuration is applied for 
+iferrmond, by default iferrmond logging will go to syslog.  Additionally, 
+journalctl(1) can be used to review the latest logs produced by iferrmond. 
+.LP
+The primary use of the logged output of iferrmond is for a 3rd party Enterprise
+Monitoring agent to monitor the logging destination of iferrmond. The agent, 
+using a regex string of the pattern: '.*iferrmond.*Error:.*', upon a match, 
+would then produce appropriate alerting and/or trouble-ticket generation as 
+required.
+.LP
+At daemon startup, if a '\-c configFile' option/argument is not applied, then
+default values will be configured.  Almost all of the defaults, with the 
+exception of what interfaces to monitor, *should* be sufficient.  At a minimum,
+provide a configFile that includes configuration directive: 'Interfaces'.  See 
+iferrmond.conf in the NOTES section below for details.
+.LP
+iferrmond is compiled and linked against libnetlink 
+.UR
+https://en.wikipedia.org/wiki/Netlink
+.UE
+written by Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>.   If compiled to 
+include '#define DEBUG 1', then additional verbose debugging output will be 
+produced.  iferrmond is installed by default in /usr/local/bin, with the .conf 
+file in /usr/local/etc.  Reference files will reside in /usr/local/share, 
+and this manual page should reside in the /usr/local tree.  The iferrmond daemon
+runs un-privileged, with reserved UID:9152 and GID:9479, usually assigned to the
+User and Group 'iferrmond:iferrmond' respectively.
+.LP
+Operationally, iferrmond upon startup will issue libnetlink calls to retrieve
+kernel interface statistics containing error counters, and store them in local
+memory.  At each monInterval (see iferrmond.conf in the NOTES section below) 
+iferrmond will again retrieve the current kernel interface statistics, and 
+compare those with the earlier statistics saved in memory.  If errors have been
+found, greater than or equal to the thresHold, an event is written the logging 
+destination.  At this point, the recent statistics will replace the stored 
+statistics in memory, in preparation for the comparison in the next monInterval.  
+In order to reduce duplicate event alerts, various configuration directives 
+are available.  Please see the NOTES section for iferrmond.conf below, and in 
+particular for further detail, review: 
+.RS .5i
+.LP
+.nf
+- errorAlertInterval
+- downAlertInterval
+- errorDelayTime
+- downDelayTime
+.RE
+.LP
+.SH OPTIONS
+.LP
+.B \-V
+.RS .5i
+Optional argument to report version information, and exit.
+.RE
+.LP
+.B \-?
+.RS .5i
+Optional argument to provide a help summary, and exit.
+.RE
+.LP
+.B [ \-c configFile ]
+.RS .5i
+Configuration file for iferrmond.  Typically located in /usr/local/etc, as
+filename iferrmond.conf. See iferrmond.conf in the NOTES section below for 
+details.
+.RE
+.LP
+.B [ \-D ]
+.RS .5i
+Optional argument to provide debugging output.  This argument is useful for 
+producing additional debugging output during runtime.  This should not be used
+for production.
+.RE
+.LP
+.SH ENVIRONMENT
+.LP
+.B None
+.RE
+.SH FILES
+.TP
+.I
+/usr/local/bin/iferrmond
+.RE
+.TP
+.I
+/usr/local/etc/iferrmond.conf
+.RS .5i
+See NOTES below.
+.RE
+.TP
+.I
+/usr/lib/systemd/system/iferrmond.service
+.RS .5i
+See NOTES below.
+.RE
+.TP
+.I
+/usr/local/man/man1/iferrmond.1
+.RS .5i
+(except, on Oracle Linux: /usr/local/share/man/man1/iferrmond.1)
+.RE
+.SH NOTES
+.B Contents of iferrmond.conf: 
+.IR (See: $INSTDIR/share/iferrmond/iferrmond_default.conf)
+.LP
+.RS .5i
+Note: Blank lines and lines beginning with # are ignored
+.RE
+.RS .5i
+.PP
+.B Interfaces: Interfaces to monitor
+.RS .5i
+.LP
+Description: Identifies which interfaces for iferrmond to monitor
+.LP
+Syntax: Single line, values to right of = surrounded by double quotes, 
+interface names separated by commas
+.LP
+Default if not specified: eth0
+.LP
+Example:
+.LP
+.B Interfaces="eth0"
+.RE
+.PP
+.B monInterval: Interval for monitoring
+.RS .5i
+.LP
+Description: The interval that iferrmond wakes up to check if any errors have 
+been encountered on any monitored interfaces
+.LP
+Syntax: Single value, in seconds: 5-999999
+.LP
+Default if not specified: 300
+.LP
+Example:
+.LP
+.B monInterval=300
+.RE
+.PP
+.B thresHold: Error threshold
+.RS .5i
+.LP
+Description: The minimum number of errors received within a monInterval for 
+any monitored interface, for which to report on.
+.LP
+Syntax: Single value, 0-999999999
+.LP
+Default if not specified: 5
+.LP
+Example:
+.LP
+.B thresHold=5
+.RE
+.PP
+.B errorAlertInterval: Interval for waiting after kernel stat errors alert
+.RS .5i
+.LP
+Description: The interval that iferrmond will wait after producing an alert 
+with the string "Error: " due to kernel statistics for a given interface, 
+before producing another "Error: " alert for (kernel statistic errors for) 
+that same interface.  In the meantime an alert will be produced with 
+string "Alert: ", instead.  This configuration variable is meant to reduce 
+duplicate tickets generated by an Enterprise event monitor, and allow for 
+the time it takes to typically correct/fix network errors.  
+.LP
+.RS .5i
+Hint: Enterprise monitors: *only* watch for "Error: ", 
+*DO NOT* watch for "Alert: ", otherwise this logic and capability is defeated.
+.RE
+.LP
+Syntax: Single value, in hours: 0-9999
+.LP
+Default if not specified: 168 (1 week)
+.LP
+Example:
+.LP
+.B errorAlertInterval=168
+.RE
+.PP
+.B downAlertInterval: Interval for waiting after interface down errors
+.RS .5i
+.LP
+Description: The interval that iferrmond will wait after producing an alert 
+with the string "Error: " due to a monitored interface being found to be down, 
+before producing another down "Error: " alert for that same interface.  In the 
+meantime an alert will be produced with string "Alert: ", instead.  This 
+configuration variable is meant to reduce duplicate tickets generated by an 
+Enterprise event monitor, and allow for the time it takes to typically 
+correct/fix network errors.
+.LP
+.RS .5i
+Hint: Enterprise monitors: *only* watch for "Error: ", 
+*DO NOT* watch for "Alert: ", otherwise this logic and capability is defeated.
+.RE
+.LP
+Syntax: Single value, in hours: 0-9999
+.LP
+Default if not specified: 24 (1 day)
+.LP
+Example:
+.LP
+.B downAlertInterval=24
+.RE
+.PP
+.B errorDelayTime: Upon startup, delay stat "Error" alert by this much time
+.RS .5i
+.LP
+Description: The Delay Time that iferrmond will wait after startup to alert 
+with the string "Error: " due to kernel statistics for a given interface.  In 
+the meantime an alert will be produced with string "Alert: ", instead.  This 
+configuration variable is meant to reduce inadvertant Enterprise monitoring 
+tickets after a maintenance outage.  
+.LP
+.RS .5i
+Hint: Enterprise monitors: *only* watch for "Error: ", 
+*DO NOT* watch for "Alert: ", otherwise this logic and capability is defeated.
+.RE
+.LP
+Syntax: Single value, in hours: 0-9999
+.LP
+Default if not specified: 12
+.LP
+Example:
+.LP
+.B errorDelayTime=12
+.RE
+.PP
+.B downDelayTime: Upon startup, delay down "Error" alert by this much time
+.RS .5i
+.LP
+Description: The Delay Time that iferrmond will wait after startup to alert 
+with the string "Error: " due to a monitored interface being down.  In the 
+meantime an alert will be produced with string "Alert: ", instead.  This 
+configuration variable is meant to reduce inadvertant Enterprise monitoring 
+tickets after a maintenance outage.  
+.LP
+.RS .5i
+Hint: Enterprise monitors: *only* watch for "Error: ", 
+*DO NOT* watch for "Alert: ", otherwise this logic and capability is defeated.
+.RE
+.LP
+Syntax: Single value, in hours: 0-9999
+.LP
+Default if not specified: 8
+.LP
+Example:
+.LP
+.B downDelayTime=8
+.RE
+.PP
+.B chatty: Logging level
+.RS .5i
+.LP
+Description: If Y or y, enables increased logging of what iferrmond finds
+.LP
+Syntax: Single value: Y or y, or N or n
+.LP
+Default if not specified: N
+.LP
+Example:
+.LP
+.B chatty=N
+.RE
+.RE
+.PP
+.B Contents of iferrmond.service: 
+.IR (See: $INSTDIR/share/iferrmond/iferrmond.service)
+.LP
+.RS .5i
+Note: Blank lines are ignored
+.RE
+.RS .5i
+.PP
+.B [Unit]
+.sp 0
+Description=Interface monitoring daemon
+.sp 0
+Wants=network-online.target
+.sp 0
+After=network-online.target
+.sp 1
+.B [Service]
+.sp 0
+Type=forking
+.sp 0
+ExecStart=/usr/local/bin/iferrmond -c/usr/local/etc/iferrmond.conf
+PIDFile=/run/iferrmond/iferrmond.pid
+.sp 1
+.B [Install]
+.sp 0
+WantedBy=multi-user.target
+.RE
+.RE
+.LP
+.PP
+.SH EXIT CODES
+.LP
+0 if successful, nonzero if not successful.
+.SH AUTHOR
+.LP
+Michael O'Brien <mobrien03@gmail.com>
+.SH AVAILABILITY
+.LP
+iferrmond is available for the following architectures:
+.LP
+.RS .5i
+Linux (x86_64)
+.RE
+.LP
+.SH LICENSE
+.LP
+ifermond is licensed under GPLv2 (or later)

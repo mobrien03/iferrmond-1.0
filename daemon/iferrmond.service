@@ -1,0 +1,12 @@
+[Unit]
+Description=Interface monitoring daemon
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/iferrmond -c/usr/local/etc/iferrmond.conf
+PIDFile=/run/iferrmond/iferrmond.pid
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,164 @@
+### HowTo Make and Install iferrmond from source
+##
+##  Steps on an x86_64 system as {your_user_name}
+##  NOTE: Assumes source tree location is $HOME/src/iferrmond-1.0
+##
+#
+#-> To compile and install (using make from source tree):
+cd ~/src/iferrmond-1.0
+make clean; make; sudo make install
+
+#-> To un-install (using make from source tree):
+cd ~/src/iferrmond-1.0
+sudo make uninstall
+
+
+
+
+###############################################################################
+MISCELLANEOUS - RPM-related information, if you prefer to build an rpm instead
+
+### HowTo Create an RPM
+##
+##  Reference: http://ftp.rpm.org/max-rpm/
+##  Reference: http://ftp.rpm.org/max-rpm/s1-rpm-rw-build-package-building.html
+##  Reference: https://opensource.com/article/18/9/how-build-rpm-packages
+##  Reference: https://rpm-packaging-guide.github.io/
+##  Reference: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html-single/rpm_packaging_guide/index
+##  Reference: https://stackoverflow.com/questions/39892692/how-to-implement-make-install-in-a-makefile/39895302
+##  Reference: https://www.daniweb.com/programming/software-development/threads/396624/makefile-determines-different-distributions
+##  Reference: http://nuclear.mutantstargoat.com/articles/make/
+##  Reference: https://stackoverflow.com/questions/714100/os-detecting-makefile
+##  Reference: https://listman.redhat.com/archives/rpm-list/2004-September/msg00014.html    # <-- Determine rpm build arch
+##  Reference: https://unix.stackexchange.com/questions/333932/how-to-determine-whether-the-system-an-rpm-package-is-built-on-is-centos-from-wi
+##  Reference: https://www.rpmfind.net/linux/RPM/
+#
+
+
+### ISSUE!
+### (on a given SLES system) rpmbuild is not found 
+##  Requires pkg rpmdevtools, which requires pkgs fakeroot and rpm-python
+##  rpm-python is the problem -- unable to source that from anywhere!! 
+##  
+##  Note: rpmbuild is found easily on Ubuntu x86_64, so it's not necessary
+##        to build from sources if you already have rpmbuild -- obviously ;-)
+#
+
+
+###############################################################################
+#
+#  Compile utilitly "rpm" from sources (if needed) in order to provide rpmbuild
+#
+###############################################################################
+
+###  Solution, download rpm-master.zip from https://github.com/rpm-software-management/rpm
+##
+#
+cd ~/src
+unzip rpm-master.zip
+cd rpm-master
+
+
+### View rpm-master README
+##  Install missing pre-requisites (NOTE: example below for a SLES system)
+##  ...your mileage may vary ;-)
+#
+sudo zypper install gettext-tools           # <- For missing /usr/bin/autopoint
+sudo zypper install libgcrypt-devel         # <- For missing libgcrypyt
+sudo zypper install file-devel              # <- For magic.h
+sudo zypper install libarchive-devel        # <- For archive.h
+sudo zypper install sqlite3-devel           # <- For sqlite3*.h
+sudo zypper install lua53-devel             # <- For lua devel
+
+
+### Run autogen.sh
+##
+#
+./autogen.sh
+
+
+### Run configure
+##
+#
+./configure --prefix=/home/{your_user_name}/local
+make
+make install
+
+
+### Done.
+##
+#
+which rpmbuild
+/home/{your_user_name}/local/bin/rpmbuild
+
+
+###############################################################################
+#
+# Create tree structure for rpmbuild, and create spec file
+#
+###############################################################################
+
+cd ~
+mkdir rpmbuild
+cd rpmbuild
+mkdir -p BUILD RPMS RPMS/x86_64 SOURCES SPECS SRPMS
+
+#-> Create spec file
+#-> NOTE!!: Modify .spec file with your UID/GID for iferrmond:iferrmond
+#->
+#-> TODO: check out possibility of defining {user}/{group} during rpmbuild:
+#->  REF: https://stackoverflow.com/questions/56233258/attr-in-rpm-spec-does-not-take-env-variables-value
+#->
+cd SPECS
+cp -p ~/src/iferrmond-1.0/iferrmond.spec .
+
+
+
+###############################################################################
+#
+#  Development cycle for iferrmond-1.0-1.2.x86_64.rpm
+#
+#  Steps on an x86_64 system as {your_user_name}
+#  NOTE: Assumes source tree location is $HOME/src/iferrmond-1.0
+#
+###############################################################################
+
+cd ~/src/iferrmond-1.0
+...make needed mods
+git status
+git add {?}
+git commit -m "What was done..."
+(make clean; make; make cscope)
+./create_tar.sh
+cd ~/rpmbuild/SOURCES; rm iferrmond*.tar.gz
+cp ~/src/iferrmond-1.0-1.2.tar.gz .
+cd ~/rpmbuild
+sudo rpmbuild --define "_topdir `pwd`" -v -ba SPECS/iferrmond.spec
+ls -l RPMS/x86_64/iferrmond-1.0-1.2.x86_64.rpm   # <-- Ready for use!
+
+
+
+###############################################################################
+#
+# Steps to re-install iferrmond using an rpm
+#
+# NOTE: (Assumes location of new rpm is in /tmp)
+#
+###############################################################################
+
+sudo rpm -e iferrmond                           #<- Remove existing if there
+
+cd /tmp
+sudo rpm -ivh iferrmond-1.0-1.2.x86_64.rpm      #<- Install new vers/rel
+sudo systemctl start iferrmond                  #<- Check iferrmond.conf first!
+sudo systemctl status -l iferrmond              #<- Should be GREEN/ACTIVE
+rm /tmp/iferrmond-1.0-1.2.x86_64.rpm
+
+# Monitor logging via systemd for iferrmond     #<- Effectively a tail -f 
+sudo journalctl -f _SYSTEMD_UNIT=iferrmond.service
+
+# Note: Depending upon the configuration directives, iferrmond may not be
+#       very "chatty", so it can be kinda boring to watch the log - that is 
+#       unless you have real issues on a local network interface :-)
+#
+###############################################################################
