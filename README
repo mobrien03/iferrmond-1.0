@@ -1,3 +1,6 @@
+Disclaimer: Any views or opinions found on this siter are my own, and do not reflect the views or opinions of any current, or past employer.
+
+
 WHAT IS IFERRMOND (pronounced if-err-mon-d, or i-f-err-mon-d)?
 
 iferrmond is a (Linux x86_64) process daemon intended to run under control of systemd(1), designed to monitor configured network interfaces for kernel statistics errors, or interface down.  Depending upon the contents of the systemd iferrmond unit file iferrmond.service, logging of events (Info, Alert, Error) by iferrmond will be written to either syslog, or a log file.  If no special systemd log file configuration is applied for iferrmond, by default iferrmond logging will go to syslog (typically /var/log/messages). Additionally, journalctl(1) can be used to review the latest logs produced by iferrmond.  The primary use of the logged output of iferrmond is for a 3rd party Enterprise Monitoring (Agent) to monitor the logging destination of iferrmond.  The agent, using a regex string of the pattern: '.*iferrmond.*Error:.*', upon a match, would then produce appropriate alerting and/or trouble-ticket generation as required.
